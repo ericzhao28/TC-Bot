@@ -301,8 +301,9 @@ def simulation_epoch(simulation_epoch_size):
             if episode_over:
                 if reward > 0: 
                     successes += 1
-                    print ("simulation episode %s: Success" % (episode))
-                else: print ("simulation episode %s: Fail" % (episode))
+                    # print ("simulation episode %s: Success" % (episode))
+                    # else:
+                    # print ("simulation episode %s: Fail" % (episode))
                 cumulative_turns += dialog_manager.state_tracker.turn_count
     
     res['success_rate'] = float(successes)/simulation_epoch_size
@@ -329,7 +330,8 @@ def warm_start_simulation():
                 if reward > 0: 
                     successes += 1
                     print ("warm_start simulation episode %s: Success" % (episode))
-                else: print ("warm_start simulation episode %s: Fail" % (episode))
+                else:
+                    print ("warm_start simulation episode %s: Fail" % (episode))
                 cumulative_turns += dialog_manager.state_tracker.turn_count
         
         warm_start_run_epochs += 1
@@ -369,7 +371,8 @@ def run_episodes(count, status):
                 if reward > 0:
                     print ("Successful Dialog!")
                     successes += 1
-                else: print ("Failed Dialog!")
+                else:
+                    print ("Failed Dialog!")
                 
                 cumulative_turns += dialog_manager.state_tracker.turn_count
         
@@ -401,7 +404,7 @@ def run_episodes(count, status):
             print ("Simulation success rate %s, Ave reward %s, Ave turns %s, Best success rate %s" % (performance_records['success_rate'][episode], performance_records['ave_reward'][episode], performance_records['ave_turns'][episode], best_res['success_rate']))
             if episode % save_check_point == 0 and params['trained_model_path'] == None: # save the model every 10 episodes
                 save_model(params['write_model_dir'], agt, best_res['success_rate'], best_model['model'], best_res['epoch'], episode)
-                save_performance_records(params['write_model_dir'], agt, performance_records)
+            save_performance_records(params['write_model_dir'], agt * 10 + agt, performance_records)
         
         print("Progress: %s / %s, Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (episode+1, count, successes, episode+1, float(cumulative_reward)/(episode+1), float(cumulative_turns)/(episode+1)))
     print("Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f" % (successes, count, float(cumulative_reward)/count, float(cumulative_turns)/count))
@@ -410,6 +413,6 @@ def run_episodes(count, status):
     
     if agt == 9 and params['trained_model_path'] == None:
         save_model(params['write_model_dir'], agt, float(successes)/count, best_model['model'], best_res['epoch'], count)
-        save_performance_records(params['write_model_dir'], agt, performance_records)
+    save_performance_records(params['write_model_dir'], agt * 10 + agt, performance_records)
     
 run_episodes(num_episodes, status)
