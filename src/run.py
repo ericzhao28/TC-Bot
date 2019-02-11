@@ -31,7 +31,7 @@ import argparse, json, copy, os
 import cPickle as pickle
 
 from deep_dialog.dialog_system import DialogManager, text_to_dict
-from deep_dialog.agents import AgentCmd, InformAgent, RequestAllAgent, RandomAgent, EchoAgent, RequestBasicsAgent, AgentDQN
+from deep_dialog.agents import AgentCmd, InformAgent, RequestAllAgent, RandomAgent, EchoAgent, RequestBasicsAgent, AgentDQN, AgentDagger
 from deep_dialog.usersims import RuleSimulator
 
 from deep_dialog import dialog_config
@@ -82,6 +82,7 @@ if __name__ == "__main__":
     # RL agent parameters
     parser.add_argument('--experience_replay_pool_size', dest='experience_replay_pool_size', type=int, default=1000, help='the size for experience replay')
     parser.add_argument('--dqn_hidden_size', dest='dqn_hidden_size', type=int, default=60, help='the hidden size for DQN')
+    parser.add_argument('--dagger_hidden_size', dest='dagger_hidden_size', type=int, default=60, help='the hidden size for Dagger')
     parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, help='batch size')
     parser.add_argument('--gamma', dest='gamma', type=float, default=0.9, help='gamma for DQN')
     parser.add_argument('--predict_mode', dest='predict_mode', type=bool, default=False, help='predict model for DQN')
@@ -90,6 +91,7 @@ if __name__ == "__main__":
     parser.add_argument('--warm_start_epochs', dest='warm_start_epochs', type=int, default=100, help='the number of epochs for warm start')
     
     parser.add_argument('--trained_model_path', dest='trained_model_path', type=str, default=None, help='the path for trained model')
+    parser.add_argument('--expert_model_path', dest='expert_model_path', type=str, default=None, help='the path for expert model')
     parser.add_argument('-o', '--write_model_dir', dest='write_model_dir', type=str, default='./deep_dialog/checkpoints/', help='write model to disk') 
     parser.add_argument('--save_check_point', dest='save_check_point', type=int, default=10, help='number of epochs for saving model')
      
@@ -173,6 +175,10 @@ elif agt == 5:
     agent = RequestBasicsAgent(movie_kb, act_set, slot_set, agent_params)
 elif agt == 9:
     agent = AgentDQN(movie_kb, act_set, slot_set, agent_params)
+elif agt == 10:
+    assert(params["expert_model_path"] is not None)
+    expert = AgentDQN(movie_kb, act_set, slot_set, agent_params, params["expert_model_path"])
+    agent = AgentDagger(expert, movie_kb, act_set, slot_set, agent_params)
     
 ################################################################################
 #    Add your agent here
@@ -262,10 +268,14 @@ performance_records['ave_reward'] = {}
 
 """ Save model """
 def save_model(path, agt, success_rate, agent, best_epoch, cur_epoch):
+    if agt == 10:
+        return
+
     filename = 'agt_%s_%s_%s_%.5f.p' % (agt, best_epoch, cur_epoch, success_rate)
     filepath = os.path.join(path, filename)
     checkpoint = {}
-    if agt == 9: checkpoint['model'] = copy.deepcopy(agent.dqn.model)
+    if agt == 9:
+        checkpoint['model'] = copy.deepcopy(agent.dqn.model)
     checkpoint['params'] = params
     try:
         pickle.dump(checkpoint, open(filepath, "wb"))
@@ -353,7 +363,7 @@ def run_episodes(count, status):
     cumulative_reward = 0
     cumulative_turns = 0
     
-    if agt == 9 and params['trained_model_path'] == None and warm_start == 1:
+    if agt in [9, 10] and params['trained_model_path'] == None and warm_start == 1:
         print ('warm_start starting ...')
         warm_start_simulation()
         print ('warm_start finished, start RL training ...')
@@ -377,7 +387,7 @@ def run_episodes(count, status):
                 cumulative_turns += dialog_manager.state_tracker.turn_count
         
         # simulation
-        if agt == 9 and params['trained_model_path'] == None:
+        if agt in [9, 10] and params['trained_model_path'] == None:
             agent.predict_mode = True
             simulation_res = simulation_epoch(simulation_epoch_size)
             
@@ -396,8 +406,9 @@ def run_episodes(count, status):
                 best_res['ave_reward'] = simulation_res['ave_reward']
                 best_res['ave_turns'] = simulation_res['ave_turns']
                 best_res['epoch'] = episode
-                
-            agent.clone_dqn = copy.deepcopy(agent.dqn)
+
+            if agt == 9:
+                agent.clone_dqn = copy.deepcopy(agent.dqn)
             agent.train(batch_size, 1)
             agent.predict_mode = False
             

@@ -7,6 +7,7 @@ Created on May 17, 2016
 import json
 from . import StateTracker
 from deep_dialog import dialog_config
+from deep_dialog.agents import AgentDQN, AgentDagger
 
 
 class DialogManager:
@@ -73,7 +74,12 @@ class DialogManager:
         #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
         ########################################################################
         if record_training_data:
-            self.agent.register_experience_replay_tuple(self.state, self.agent_action, self.reward, self.state_tracker.get_state_for_agent(), self.episode_over)
+            if isinstance(self.agent, AgentDQN):
+                self.agent.register_experience_replay_tuple(self.state, self.agent_action, self.reward, self.state_tracker.get_state_for_agent(), self.episode_over)
+            elif isinstance(self.agent, AgentDagger):
+                self.agent.register_dagger_tuple(self.state)
+            else:
+                raise ValueError("Attempting to record training data in non-training agent.")
         
         return (self.episode_over, self.reward)
 

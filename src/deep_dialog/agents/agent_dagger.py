@@ -1,16 +1,10 @@
 '''
-Created on Jun 18, 2016
+Created on Feb, 11, 2019
 
-An DQN Agent
+An Dagger Agent
+- An Dagger
 
-- An DQN
-- Keep an experience_replay pool: training_data <State_t, Action, Reward, State_t+1>
-- Keep a copy DQN
-
-Command: python .\run.py --agt 9 --usr 1 --max_turn 40 --movie_kb_path .\deep_dialog\data\movie_kb.1k.json --dqn_hidden_size 80 --experience_replay_pool_size 1000 --replacement_steps 50 --per_train_epochs 100 --episodes 200 --err_method 2
-
-
-@author: xiul
+@author: ericzhao28
 '''
 
 
@@ -21,12 +15,12 @@ import numpy as np
 from deep_dialog import dialog_config
 
 from agent import Agent
-from deep_dialog.neural import DQN
+from deep_dialog.neural import Dagger
 
 
 
-class AgentDQN(Agent):
-    def __init__(self, movie_dict=None, act_set=None, slot_set=None, params=None, expert_path=None):
+class AgentDagger(Agent):
+    def __init__(self, expert, movie_dict=None, act_set=None, slot_set=None, params=None):
         self.movie_dict = movie_dict
         self.act_set = act_set
         self.slot_set = slot_set
@@ -39,36 +33,21 @@ class AgentDQN(Agent):
         self.epsilon = params['epsilon']
         self.agent_run_mode = params['agent_run_mode']
         self.agent_act_level = params['agent_act_level']
-        self.experience_replay_pool = [] #experience replay pool <s_t, a_t, r_t, s_t+1>
-        
-        self.experience_replay_pool_size = params.get('experience_replay_pool_size', 1000)
-        self.hidden_size = params.get('dqn_hidden_size', 60)
+        self.dagger_X = [] #dagger data pool <s_t>
+        self.dagger_Y = [] #dagger data pool <a_t>
+
+        self.hidden_size = params.get('dagger_hidden_size', 60)
         self.gamma = params.get('gamma', 0.9)
         self.predict_mode = params.get('predict_mode', False)
-        self.warm_start = params.get('warm_start', 0)
         
         self.max_turn = params['max_turn'] + 4
         self.state_dimension = 2 * self.act_cardinality + 7 * self.slot_cardinality + 3 + self.max_turn
         
-        self.dqn = DQN(self.state_dimension, self.hidden_size, self.num_actions)
-        self.clone_dqn = copy.deepcopy(self.dqn)
+        self.dagger = Dagger(self.state_dimension, self.hidden_size, self.num_actions)
+
+        self.expert = expert
         
         self.cur_bellman_err = 0
-        self.expert_mode = False
-                
-        # Prediction Mode: load trained DQN model
-        if expert_path is None:
-            if params['trained_model_path'] != None:
-                self.dqn.model = copy.deepcopy(self.load_trained_DQN(params['trained_model_path']))
-                self.clone_dqn = copy.deepcopy(self.dqn)
-                self.predict_mode = True
-                self.warm_start = 2
-        else:
-            self.dqn.model = copy.deepcopy(self.load_trained_DQN(expert_path))
-            self.clone_dqn = copy.deepcopy(self.dqn)
-            self.predict_mode = True
-            self.warm_start = 2
-            self.expert_mode = True
             
             
     def initialize_episode(self):
@@ -176,34 +155,11 @@ class AgentDQN(Agent):
     def run_policy(self, representation):
         """ epsilon-greedy policy """
         
-        if (random.random() < self.epsilon) and not self.expert_mode:
+        if random.random() < self.epsilon:
             return random.randint(0, self.num_actions - 1)
         else:
-            if self.warm_start == 1:
-                if len(self.experience_replay_pool) > self.experience_replay_pool_size:
-                    self.warm_start = 2
-                return self.rule_policy()
-            else:
-                return self.dqn.predict(representation, {}, predict_model=True)
-    
-    def rule_policy(self):
-        """ Rule Policy """
-        
-        if self.current_slot_id < len(self.request_set):
-            slot = self.request_set[self.current_slot_id]
-            self.current_slot_id += 1
+            return self.dagger.predict(representation)
 
-            act_slot_response = {}
-            act_slot_response['diaact'] = "request"
-            act_slot_response['inform_slots'] = {}
-            act_slot_response['request_slots'] = {slot: "UNK"}
-        elif self.phase == 0:
-            act_slot_response = {'diaact': "inform", 'inform_slots': {'taskcomplete': "PLACEHOLDER"}, 'request_slots': {} }
-            self.phase += 1
-        elif self.phase == 1:
-            act_slot_response = {'diaact': "thanks", 'inform_slots': {}, 'request_slots': {} }
-                
-        return self.action_index(act_slot_response)
     
     def action_index(self, act_slot_response):
         """ Return the index of action """
@@ -216,58 +172,16 @@ class AgentDQN(Agent):
         return None
     
     
-    def register_experience_replay_tuple(self, s_t, a_t, reward, s_tplus1, episode_over):
+    def register_dagger_tuple(self, s_t):
         """ Register feedback from the environment, to be stored as future training data """
         
         state_t_rep = self.prepare_state_representation(s_t)
-        action_t = self.action
-        reward_t = reward
-        state_tplus1_rep = self.prepare_state_representation(s_tplus1)
-        training_example = (state_t_rep, action_t, reward_t, state_tplus1_rep, episode_over)
+        a_t = self.expert.run_policy(state_t_rep)
         
-        if self.predict_mode == False: # Training Mode
-            if self.warm_start == 1:
-                self.experience_replay_pool.append(training_example)
-        else: # Prediction Mode
-            self.experience_replay_pool.append(training_example)
+        if not (self.predict_mode == False and not self.warm_start == 1):
+            self.dagger_X.append(state_t_rep)
+            self.dagger_Y.append(a_t)
     
     def train(self, batch_size=1, num_batches=100):
         """ Train DQN with experience replay """
-        
-        for iter_batch in range(num_batches):
-            self.cur_bellman_err = 0
-            for iter in range(len(self.experience_replay_pool)/(batch_size)):
-                batch = [random.choice(self.experience_replay_pool) for i in xrange(batch_size)]
-                batch_struct = self.dqn.singleBatch(batch, {'gamma': self.gamma}, self.clone_dqn)
-                self.cur_bellman_err += batch_struct['cost']['total_cost']
-            
-            print ("cur bellman err %.4f, experience replay pool %s" % (float(self.cur_bellman_err)/len(self.experience_replay_pool), len(self.experience_replay_pool)))
-            
-            
-    ################################################################################
-    #    Debug Functions
-    ################################################################################
-    def save_experience_replay_to_file(self, path):
-        """ Save the experience replay pool to a file """
-        
-        try:
-            pickle.dump(self.experience_replay_pool, open(path, "wb"))
-            print 'saved model in %s' % (path, )
-        except Exception, e:
-            print 'Error: Writing model fails: %s' % (path, )
-            print e         
-    
-    def load_experience_replay_from_file(self, path):
-        """ Load the experience replay pool from a file"""
-        
-        self.experience_replay_pool = pickle.load(open(path, 'rb'))
-    
-             
-    def load_trained_DQN(self, path):
-        """ Load the trained DQN from a file """
-        
-        trained_file = pickle.load(open(path, 'rb'))
-        model = trained_file['model']
-        
-        print "trained DQN Parameters:", json.dumps(trained_file['params'], indent=2)
-        return model
+        self.dagger.train(self.dagger_X, self.dagger_Y, batch_size)
