@@ -45,6 +45,8 @@ class AgentDagger(Agent):
         
         self.dagger = Dagger(self.state_dimension, self.hidden_size, self.num_actions)
 
+        self.warm_start = params.get('warm_start', 0)
+
         self.expert = expert
         
         self.cur_bellman_err = 0
@@ -158,6 +160,8 @@ class AgentDagger(Agent):
         if random.random() < self.epsilon:
             return random.randint(0, self.num_actions - 1)
         else:
+            if self.warm_start == 1:
+                return self.expert.run_policy(representation)
             return self.dagger.predict(representation)
 
     
@@ -178,10 +182,11 @@ class AgentDagger(Agent):
         state_t_rep = self.prepare_state_representation(s_t)
         a_t = self.expert.run_policy(state_t_rep)
         
-        if not (self.predict_mode == False and not self.warm_start == 1):
-            self.dagger_X.append(state_t_rep)
-            self.dagger_Y.append(a_t)
+        # if not (self.predict_mode == False):
+        self.dagger_X.append(state_t_rep[0])
+        self.dagger_Y.append(a_t)
     
-    def train(self, batch_size=1, num_batches=100):
+    def train(self, batch_size=1, _=None):
         """ Train DQN with experience replay """
+        print(len(self.dagger_X))
         self.dagger.train(self.dagger_X, self.dagger_Y, batch_size)

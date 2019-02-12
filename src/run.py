@@ -311,9 +311,9 @@ def simulation_epoch(simulation_epoch_size):
             if episode_over:
                 if reward > 0: 
                     successes += 1
-                    # print ("simulation episode %s: Success" % (episode))
-                    # else:
-                    # print ("simulation episode %s: Fail" % (episode))
+                    print ("simulation episode %s: Success" % (episode))
+                else:
+                    print ("simulation episode %s: Fail" % (episode))
                 cumulative_turns += dialog_manager.state_tracker.turn_count
     
     res['success_rate'] = float(successes)/simulation_epoch_size
@@ -346,15 +346,15 @@ def warm_start_simulation():
         
         warm_start_run_epochs += 1
         
-        if len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
+        if agt == 9 and len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
             break
-        
+
+    agent.train(batch_size, 1)
     agent.warm_start = 2
     res['success_rate'] = float(successes)/warm_start_run_epochs
     res['ave_reward'] = float(cumulative_reward)/warm_start_run_epochs
     res['ave_turns'] = float(cumulative_turns)/warm_start_run_epochs
     print ("Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s" % (episode+1, res['success_rate'], res['ave_reward'], res['ave_turns']))
-    print ("Current experience replay buffer size %s" % (len(agent.experience_replay_pool)))
 
 
 
