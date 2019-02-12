@@ -16,10 +16,13 @@ class Dagger(object):
         model = Sequential()
         model.add(Dense(hidden_size, input_shape=(input_size,)))
         model.add(Activation("relu"))
-        model.add(Dropout(0.4))
+        model.add(Dropout(0.5))
         model.add(Dense(output_size))
-        model.add(Activation("tanh"))
+        model.add(Activation("softmax"))
         model.compile(
+            # loss="mean_squared_error",
+            # optimizer=Adam(lr=1e-3),
+            # metrics=["mean_squared_error", "accuracy"],
             loss="categorical_crossentropy",
             optimizer=Adam(lr=1e-4),
             metrics=["categorical_crossentropy", "accuracy"],
@@ -30,7 +33,7 @@ class Dagger(object):
 
     def train(self, X, Y, batch_size):
         Y = to_categorical(np.array(Y), num_classes=self.output_size, dtype="float32")
-        self.model.fit(np.array(X), Y, batch_size=batch_size, nb_epoch=40, shuffle=True)
+        self.model.fit(np.array(X), Y, batch_size=batch_size, nb_epoch=5, shuffle=True, verbose=0)
 
     def predict(self, Xs):
         Ys = self.model.predict(Xs)

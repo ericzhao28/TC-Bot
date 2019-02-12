@@ -360,6 +360,7 @@ agent_params["agent_run_mode"] = params["run_mode"]
 agent_params["agent_act_level"] = params["act_level"]
 agent_params["experience_replay_pool_size"] = params["experience_replay_pool_size"]
 agent_params["dqn_hidden_size"] = params["dqn_hidden_size"]
+agent_params["dagger_hidden_size"] = params["dagger_hidden_size"]
 agent_params["batch_size"] = params["batch_size"]
 agent_params["gamma"] = params["gamma"]
 agent_params["trained_model_path"] = params["trained_model_path"]
@@ -386,11 +387,12 @@ elif agt == 9:  # DQN agent for movie domain
         agent.load_trained_DQN(params["trained_model_path"])
 elif agt == 10:
     assert params["expert_model_path"] is not None
-    expert = AgentDQN(
-        kb, act_set, slot_set, agent_params, params["expert_model_path"]
-    )
+    expert = AgentDQN(kb, act_set, slot_set, agent_params)
+    expert.initialize_config(sys_request_slots, sys_inform_slots)
+    expert.evaluation_mode = True
+    expert.warm_start = 0
+    expert.load_trained_DQN(params["expert_model_path"])
     agent = AgentDagger(expert, kb, act_set, slot_set, agent_params)
-    agent = AgentDagger(kb, act_set, slot_set, agent_params)
     agent.initialize_config(sys_request_slots, sys_inform_slots)
 
 ################################################################################
@@ -589,9 +591,6 @@ def warm_start_train():
 
         warm_start_run_epochs += 1
 
-        if len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
-            break
-
     agent.warm_start = 2
     res["success_rate"] = float(successes) / warm_start_run_epochs
     res["ave_reward"] = float(cumulative_reward) / warm_start_run_epochs
@@ -600,13 +599,10 @@ def warm_start_train():
         "Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s"
         % (episode + 1, res["success_rate"], res["ave_reward"], res["ave_turns"])
     )
-    print (
-        "Current experience replay buffer size %s" % (len(agent.experience_replay_pool))
-    )
 
 
 def train(count, status):
-    assert agt == 9 or agt == 12 or agt == 13
+    assert agt == 9 or agt == 10
 
     successes = 0
     cumulative_reward = 0
@@ -634,9 +630,9 @@ def train(count, status):
                     print ("Failed Dialog!")
                 cumulative_turns += dialog_manager.state_tracker.turn_count
 
-        agent.clone_dqn = copy.deepcopy(agent.dqn)
+        if isinstance(agent, AgentDQN):
+            agent.clone_dqn = copy.deepcopy(agent.dqn)
         agent.train(batch_size, 1)
-        agent.predict_mode = False
 
         if episode % 10 == 0:
             simulation_res = evaluate(simulation_epoch_size)
