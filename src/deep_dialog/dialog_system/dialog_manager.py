@@ -39,7 +39,7 @@ class DialogManager:
 
         self.agent.initialize_episode()
 
-    def next_turn(self, record_training_data=True):
+    def next_turn(self):
         """ This function initiates each subsequent exchange between agent and user (agent first) """
 
         ########################################################################
@@ -75,21 +75,13 @@ class DialogManager:
         ########################################################################
         #  Inform agent of the outcome for this timestep (s_t, a_t, r, s_{t+1}, episode_over)
         ########################################################################
-        if record_training_data:
-            if isinstance(self.agent, AgentDQN):
-                self.agent.register_experience_replay_tuple(
-                    self.state,
-                    self.agent_action,
-                    self.reward,
-                    self.state_tracker.get_state_for_agent(),
-                    self.episode_over,
-                )
-            elif isinstance(self.agent, AgentDagger):
-                self.agent.register_dagger_tuple(self.state)
-            else:
-                raise ValueError(
-                    "Attempting to record training data in non-training agent."
-                )
+        self.agent.register_step(
+            self.state,
+            self.agent_action,
+            self.reward,
+            self.state_tracker.get_state_for_agent(),
+            self.episode_over,
+        )
 
         return (self.episode_over, self.reward)
 

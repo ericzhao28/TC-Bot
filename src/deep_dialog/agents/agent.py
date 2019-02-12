@@ -7,7 +7,7 @@ Created on May 17, 2016
 from deep_dialog import dialog_config
 
 
-class Agent:
+class Agent(object):
     """ Prototype for all agent classes, defining the interface they must uphold """
 
     def __init__(self, movie_dict=None, act_set=None, slot_set=None, params=None):
@@ -64,9 +64,7 @@ class Agent:
             "act_slot_value_response": act_slot_value_response,
         }
 
-    def register_experience_replay_tuple(
-        self, s_t, a_t, reward, s_tplus1, episode_over
-    ):
+    def register_step(self, s_t, a_t, reward, s_tplus1, episode_over):
         """  Register feedback from the environment, to be stored as future training data
 
         Arguments:

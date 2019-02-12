@@ -35,6 +35,8 @@ class AgentCmd(Agent):
         elif self.agent_input_mode == 1:  # dia_act
             act_slot_value_response = self.parse_str_to_diaact(command)
 
+        print "user input", act_slot_value_response
+
         return {
             "act_slot_response": act_slot_value_response,
             "act_slot_value_response": act_slot_value_response,

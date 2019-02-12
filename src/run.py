@@ -5,7 +5,7 @@ This should be a simple minimalist run file. It's only responsibility should be 
 
 Rule-agent: python run.py --agt 6 --usr 1 --max_turn 40 --episodes 150 --movie_kb_path .\deep_dialog\data\movie_kb.1k.p --run_mode 2
 
-movie_kb:
+kb:
 movie_kb.1k.p: 94% success rate
 movie_kb.v2.p: 36% success rate
 
@@ -15,13 +15,13 @@ all turns: user_goals_all_turns_template.p
 user_goals_first_turn_template.part.movie.v1.p: a subset of user goal. [Please use this one, the upper bound success rate on movie_kb.1k.json is 0.9765.]
 
 Commands:
-Rule: python run.py --agt 5 --usr 1 --max_turn 40 --episodes 150 --movie_kb_path .\deep_dialog\data\movie_kb.1k.p --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --intent_err_prob 0.00 --slot_err_prob 0.00 --episodes 500 --act_level 1 --run_mode 1
+Rule: python run.py --agt 5 --usr 1 --max_turn 40 --episodes 150 --kb_path .\deep_dialog\data\movie_kb.1k.p --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --intent_err_prob 0.00 --slot_err_prob 0.00 --episodes 500 --act_level 1 --run_mode 1
 
 Training:
-RL: python run.py --agt 9 --usr 1 --max_turn 40 --movie_kb_path .\deep_dialog\data\movie_kb.1k.p --dqn_hidden_size 80 --experience_replay_pool_size 1000 --episodes 500 --simulation_epoch_size 100 --write_model_dir .\deep_dialog\checkpoints\rl_agent\ --run_mode 3 --act_level 0 --slot_err_prob 0.05 --intent_err_prob 0.00 --batch_size 16 --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --warm_start 1 --warm_start_epochs 120
+RL: python run.py --agt 9 --usr 1 --max_turn 40 --kb_path .\deep_dialog\data\movie_kb.1k.p --dqn_hidden_size 80 --experience_replay_pool_size 1000 --episodes 500 --simulation_epoch_size 100 --write_model_dir .\deep_dialog\checkpoints\rl_agent\ --run_mode 3 --act_level 0 --slot_err_prob 0.05 --intent_err_prob 0.00 --batch_size 16 --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --warm_start 1 --warm_start_epochs 120
 
 Predict:
-RL: python run.py --agt 9 --usr 1 --max_turn 40 --movie_kb_path .\deep_dialog\data\movie_kb.1k.p --dqn_hidden_size 80 --experience_replay_pool_size 1000 --episodes 300 --simulation_epoch_size 100 --write_model_dir .\deep_dialog\checkpoints\rl_agent\ --slot_err_prob 0.00 --intent_err_prob 0.00 --batch_size 16 --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --episodes 200 --trained_model_path .\deep_dialog\checkpoints\rl_agent\agt_9_22_30_0.37000.p --run_mode 3
+RL: python run.py --agt 9 --usr 1 --max_turn 40 --kb_path .\deep_dialog\data\movie_kb.1k.p --dqn_hidden_size 80 --experience_replay_pool_size 1000 --episodes 300 --simulation_epoch_size 100 --write_model_dir .\deep_dialog\checkpoints\rl_agent\ --slot_err_prob 0.00 --intent_err_prob 0.00 --batch_size 16 --goal_file_path .\deep_dialog\data\user_goals_first_turn_template.part.movie.v1.p --episodes 200 --trained_model_path .\deep_dialog\checkpoints\rl_agent\agt_9_22_30_0.37000.p --run_mode 3
 
 @author: xiul, t-zalipt
 """
@@ -50,13 +50,6 @@ from deep_dialog.nlu import nlu
 from deep_dialog.nlg import nlg
 
 
-""" 
-Launch a dialog simulation per the command line arguments
-This function instantiates a user_simulator, an agent, and a dialog system.
-Next, it triggers the simulator to run for the specified number of episodes.
-"""
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -68,8 +61,8 @@ if __name__ == "__main__":
         help="path to the .json dictionary file",
     )
     parser.add_argument(
-        "--movie_kb_path",
-        dest="movie_kb_path",
+        "--kb_path",
+        dest="kb_path",
         type=str,
         default="./deep_dialog/data/movie_kb.1k.p",
         help="path to the movie kb .json file",
@@ -223,24 +216,10 @@ if __name__ == "__main__":
         help="the hidden size for DQN",
     )
     parser.add_argument(
-        "--dagger_hidden_size",
-        dest="dagger_hidden_size",
-        type=int,
-        default=60,
-        help="the hidden size for Dagger",
-    )
-    parser.add_argument(
         "--batch_size", dest="batch_size", type=int, default=16, help="batch size"
     )
     parser.add_argument(
         "--gamma", dest="gamma", type=float, default=0.9, help="gamma for DQN"
-    )
-    parser.add_argument(
-        "--predict_mode",
-        dest="predict_mode",
-        type=bool,
-        default=False,
-        help="predict model for DQN",
     )
     parser.add_argument(
         "--simulation_epoch_size",
@@ -272,13 +251,6 @@ if __name__ == "__main__":
         help="the path for trained model",
     )
     parser.add_argument(
-        "--expert_model_path",
-        dest="expert_model_path",
-        type=str,
-        default=None,
-        help="the path for expert model",
-    )
-    parser.add_argument(
         "-o",
         "--write_model_dir",
         dest="write_model_dir",
@@ -303,18 +275,35 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--dagger_hidden_size",
+        dest="dagger_hidden_size",
+        type=int,
+        default=60,
+        help="the hidden size for Dagger",
+    )
+
+    parser.add_argument(
+        "--expert_model_path",
+        dest="expert_model_path",
+        type=str,
+        default=None,
+        help="the path for expert model",
+    )
+
+    parser.add_argument(
         "--split_fold",
         dest="split_fold",
         default=5,
         type=int,
         help="the number of folders to split the user goal",
     )
+
     parser.add_argument(
-        "--learning_phase",
-        dest="learning_phase",
-        default="all",
-        type=str,
-        help="train/test/all; default is all",
+        "--train",
+        dest="train",
+        default=False,
+        type=bool,
+        help="model training before validation",
     )
 
     args = parser.parse_args()
@@ -347,8 +336,8 @@ for u_goal_id, u_goal in enumerate(all_goal_set):
     goal_set["all"].append(u_goal)
 # end split goal set
 
-movie_kb_path = params["movie_kb_path"]
-movie_kb = pickle.load(open(movie_kb_path, "rb"))
+kb_path = params["kb_path"]
+kb = pickle.load(open(kb_path, "rb"))
 
 act_set = text_to_dict(params["act_set"])
 slot_set = text_to_dict(params["slot_set"])
@@ -369,37 +358,40 @@ agent_params["max_turn"] = max_turn
 agent_params["epsilon"] = params["epsilon"]
 agent_params["agent_run_mode"] = params["run_mode"]
 agent_params["agent_act_level"] = params["act_level"]
-
 agent_params["experience_replay_pool_size"] = params["experience_replay_pool_size"]
 agent_params["dqn_hidden_size"] = params["dqn_hidden_size"]
 agent_params["batch_size"] = params["batch_size"]
 agent_params["gamma"] = params["gamma"]
-agent_params["predict_mode"] = params["predict_mode"]
 agent_params["trained_model_path"] = params["trained_model_path"]
 agent_params["warm_start"] = params["warm_start"]
 agent_params["cmd_input_mode"] = params["cmd_input_mode"]
 
 
 if agt == 0:
-    agent = AgentCmd(movie_kb, act_set, slot_set, agent_params)
+    agent = AgentCmd(kb, act_set, slot_set, agent_params)
 elif agt == 1:
-    agent = InformAgent(movie_kb, act_set, slot_set, agent_params)
+    agent = InformAgent(kb, act_set, slot_set, agent_params)
 elif agt == 2:
-    agent = RequestAllAgent(movie_kb, act_set, slot_set, agent_params)
+    agent = RequestAllAgent(kb, act_set, slot_set, agent_params)
 elif agt == 3:
-    agent = RandomAgent(movie_kb, act_set, slot_set, agent_params)
+    agent = RandomAgent(kb, act_set, slot_set, agent_params)
 elif agt == 4:
-    agent = EchoAgent(movie_kb, act_set, slot_set, agent_params)
+    agent = EchoAgent(kb, act_set, slot_set, agent_params)
 elif agt == 5:
-    agent = RequestBasicsAgent(movie_kb, act_set, slot_set, agent_params)
-elif agt == 9:
-    agent = AgentDQN(movie_kb, act_set, slot_set, agent_params)
+    agent = RequestBasicsAgent(kb, act_set, slot_set, agent_params)
+elif agt == 9:  # DQN agent for movie domain
+    agent = AgentDQN(kb, act_set, slot_set, agent_params)
+    agent.initialize_config(sys_request_slots, sys_inform_slots)
+    if params["trained_model_path"] is not None:
+        agent.load_trained_DQN(params["trained_model_path"])
 elif agt == 10:
     assert params["expert_model_path"] is not None
     expert = AgentDQN(
-        movie_kb, act_set, slot_set, agent_params, params["expert_model_path"]
+        kb, act_set, slot_set, agent_params, params["expert_model_path"]
     )
-    agent = AgentDagger(expert, movie_kb, act_set, slot_set, agent_params)
+    agent = AgentDagger(expert, kb, act_set, slot_set, agent_params)
+    agent = AgentDagger(kb, act_set, slot_set, agent_params)
+    agent.initialize_config(sys_request_slots, sys_inform_slots)
 
 ################################################################################
 #    Add your agent here
@@ -410,20 +402,28 @@ else:
 ################################################################################
 #   Parameters for User Simulators
 ################################################################################
-usersim_params = {}
-usersim_params["max_turn"] = max_turn
-usersim_params["slot_err_probability"] = params["slot_err_prob"]
-usersim_params["slot_err_mode"] = params["slot_err_mode"]
-usersim_params["intent_err_probability"] = params["intent_err_prob"]
-usersim_params["simulator_run_mode"] = params["run_mode"]
-usersim_params["simulator_act_level"] = params["act_level"]
-usersim_params["learning_phase"] = params["learning_phase"]
+training_user_sim_params = {}
+training_user_sim_params["max_turn"] = max_turn
+training_user_sim_params["slot_err_probability"] = params["slot_err_prob"]
+training_user_sim_params["slot_err_mode"] = params["slot_err_mode"]
+training_user_sim_params["intent_err_probability"] = params["intent_err_prob"]
+training_user_sim_params["simulator_run_mode"] = params["run_mode"]
+training_user_sim_params["simulator_act_level"] = params["act_level"]
+training_user_sim_params["learning_phase"] = "train"
+eval_user_sim_params = copy.deepcopy(training_user_sim_params)
+eval_user_sim_params["learning_phase"] = "test"
+
 
 if usr == 0:  # real user
-    user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, usersim_params)
-elif usr == 1:
-    user_sim = RuleSimulator(
-        movie_dictionary, act_set, slot_set, goal_set, usersim_params
+    raise ValueError("No real user implemented!")
+    # training_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, training_user_sim_params)
+    # eval_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, eval_user_sim_params)
+elif usr == 1:  # movie simulator
+    training_user_sim = RuleSimulator(
+        movie_dictionary, act_set, slot_set, goal_set, training_user_sim_params
+    )
+    eval_user_sim = RuleSimulator(
+        movie_dictionary, act_set, slot_set, goal_set, eval_user_sim_params
     )
 
 ################################################################################
@@ -440,10 +440,11 @@ nlg_model_path = params["nlg_model_path"]
 diaact_nl_pairs = params["diaact_nl_pairs"]
 nlg_model = nlg()
 nlg_model.load_nlg_model(nlg_model_path)
-nlg_model.load_predefine_act_nl_pairs(diaact_nl_pairs)
+nlg_model.load_predefine_act_nl_pairs(diaact_nl_pairs)  # load nlg templates
 
 agent.set_nlg_model(nlg_model)
-user_sim.set_nlg_model(nlg_model)
+training_user_sim.set_nlg_model(nlg_model)
+eval_user_sim.set_nlg_model(nlg_model)
 
 
 ################################################################################
@@ -454,13 +455,14 @@ nlu_model = nlu()
 nlu_model.load_nlu_model(nlu_model_path)
 
 agent.set_nlu_model(nlu_model)
-user_sim.set_nlu_model(nlu_model)
+training_user_sim.set_nlu_model(nlu_model)
+eval_user_sim.set_nlu_model(nlu_model)
 
 
 ################################################################################
 # Dialog Manager
 ################################################################################
-dialog_manager = DialogManager(agent, user_sim, act_set, slot_set, movie_kb)
+dialog_manager = DialogManager(agent, eval_user_sim, act_set, slot_set, kb)
 
 
 ################################################################################
@@ -486,7 +488,6 @@ best_res = {
     "epoch": 0,
 }
 best_model["model"] = copy.deepcopy(agent)
-best_res["success_rate"] = 0
 
 performance_records = {}
 performance_records["success_rate"] = {}
@@ -498,9 +499,6 @@ performance_records["ave_reward"] = {}
 
 
 def save_model(path, agt, success_rate, agent, best_epoch, cur_epoch):
-    if agt == 10:
-        return
-
     filename = "agt_%s_%s_%s_%.5f.p" % (agt, best_epoch, cur_epoch, success_rate)
     filepath = os.path.join(path, filename)
     checkpoint = {}
@@ -532,7 +530,10 @@ def save_performance_records(path, agt, records):
 """ Run N simulation Dialogues """
 
 
-def simulation_epoch(simulation_epoch_size):
+def evaluate(simulation_epoch_size):
+    dialog_manager.user = eval_user_sim
+    agent.evaluation_mode = True
+
     successes = 0
     cumulative_reward = 0
     cumulative_turns = 0
@@ -547,16 +548,13 @@ def simulation_epoch(simulation_epoch_size):
             if episode_over:
                 if reward > 0:
                     successes += 1
-                    print ("simulation episode %s: Success" % (episode))
-                else:
-                    print ("simulation episode %s: Fail" % (episode))
                 cumulative_turns += dialog_manager.state_tracker.turn_count
 
     res["success_rate"] = float(successes) / simulation_epoch_size
     res["ave_reward"] = float(cumulative_reward) / simulation_epoch_size
     res["ave_turns"] = float(cumulative_turns) / simulation_epoch_size
     print (
-        "simulation success rate %s, ave reward %s, ave turns %s"
+        "Evaluation success rate %s, ave reward %s, ave turns %s"
         % (res["success_rate"], res["ave_reward"], res["ave_turns"])
     )
     return res
@@ -565,7 +563,10 @@ def simulation_epoch(simulation_epoch_size):
 """ Warm_Start Simulation (by Rule Policy) """
 
 
-def warm_start_simulation():
+def warm_start_train():
+    dialog_manager.user = training_user_sim
+    agent.evaluation_mode = False
+
     successes = 0
     cumulative_reward = 0
     cumulative_turns = 0
@@ -588,13 +589,9 @@ def warm_start_simulation():
 
         warm_start_run_epochs += 1
 
-        if (
-            agt == 9
-            and len(agent.experience_replay_pool) >= agent.experience_replay_pool_size
-        ):
+        if len(agent.experience_replay_pool) >= agent.experience_replay_pool_size:
             break
 
-    agent.train(batch_size, 1)
     agent.warm_start = 2
     res["success_rate"] = float(successes) / warm_start_run_epochs
     res["ave_reward"] = float(cumulative_reward) / warm_start_run_epochs
@@ -603,66 +600,63 @@ def warm_start_simulation():
         "Warm_Start %s epochs, success rate %s, ave reward %s, ave turns %s"
         % (episode + 1, res["success_rate"], res["ave_reward"], res["ave_turns"])
     )
+    print (
+        "Current experience replay buffer size %s" % (len(agent.experience_replay_pool))
+    )
 
 
-def run_episodes(count, status):
+def train(count, status):
+    assert agt == 9 or agt == 12 or agt == 13
+
     successes = 0
     cumulative_reward = 0
     cumulative_turns = 0
+    dialog_manager.user = training_user_sim
+    agent.evaluation_mode = False
 
-    if agt in [9, 10] and params["trained_model_path"] == None and warm_start == 1:
+    if warm_start == 1:
         print ("warm_start starting ...")
-        warm_start_simulation()
+        warm_start_train()
         print ("warm_start finished, start RL training ...")
 
     for episode in xrange(count):
-        print ("Episode: %s" % (episode))
         dialog_manager.initialize_episode()
         episode_over = False
 
         while not episode_over:
             episode_over, reward = dialog_manager.next_turn()
             cumulative_reward += reward
-
             if episode_over:
                 if reward > 0:
                     print ("Successful Dialog!")
                     successes += 1
                 else:
                     print ("Failed Dialog!")
-
                 cumulative_turns += dialog_manager.state_tracker.turn_count
 
-        # simulation
-        if agt in [9, 10] and params["trained_model_path"] == None:
-            agent.predict_mode = True
-            simulation_res = simulation_epoch(simulation_epoch_size)
+        agent.clone_dqn = copy.deepcopy(agent.dqn)
+        agent.train(batch_size, 1)
+        agent.predict_mode = False
 
+        if episode % 10 == 0:
+            simulation_res = evaluate(simulation_epoch_size)
+            dialog_manager.user = training_user_sim
+            agent.evaluation_mode = False
             performance_records["success_rate"][episode] = simulation_res[
                 "success_rate"
             ]
             performance_records["ave_turns"][episode] = simulation_res["ave_turns"]
             performance_records["ave_reward"][episode] = simulation_res["ave_reward"]
-
-            if simulation_res["success_rate"] >= best_res["success_rate"]:
-                if (
-                    simulation_res["success_rate"] >= success_rate_threshold
-                ):  # threshold = 0.30
-                    agent.experience_replay_pool = []
-                    simulation_epoch(simulation_epoch_size)
-
+            # if simulation_res['success_rate'] >= best_res['success_rate']:
+            #     if simulation_res['success_rate'] >= success_rate_threshold: # threshold = 0.30
+            #         agent.experience_replay_pool = []
+            #         simulation_epoch(simulation_epoch_size)
             if simulation_res["success_rate"] > best_res["success_rate"]:
                 best_model["model"] = copy.deepcopy(agent)
                 best_res["success_rate"] = simulation_res["success_rate"]
                 best_res["ave_reward"] = simulation_res["ave_reward"]
                 best_res["ave_turns"] = simulation_res["ave_turns"]
                 best_res["epoch"] = episode
-
-            if agt == 9:
-                agent.clone_dqn = copy.deepcopy(agent.dqn)
-            agent.train(batch_size, 1)
-            agent.predict_mode = False
-
             print (
                 "Simulation success rate %s, Ave reward %s, Ave turns %s, Best success rate %s"
                 % (
@@ -672,9 +666,8 @@ def run_episodes(count, status):
                     best_res["success_rate"],
                 )
             )
-            if (
-                episode % save_check_point == 0 and params["trained_model_path"] == None
-            ):  # save the model every 10 episodes
+
+            if episode % save_check_point == 0 and params["trained_model_path"] == None:
                 save_model(
                     params["write_model_dir"],
                     agt,
@@ -683,9 +676,9 @@ def run_episodes(count, status):
                     best_res["epoch"],
                     episode,
                 )
-            save_performance_records(
-                params["write_model_dir"], agt * 10 + agt, performance_records
-            )
+                save_performance_records(
+                    params["write_model_dir"], agt, performance_records
+                )
 
         print (
             "Progress: %s / %s, Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f"
@@ -698,6 +691,7 @@ def run_episodes(count, status):
                 float(cumulative_turns) / (episode + 1),
             )
         )
+
     print (
         "Success rate: %s / %s Avg reward: %.2f Avg turns: %.2f"
         % (
@@ -719,9 +713,10 @@ def run_episodes(count, status):
             best_res["epoch"],
             count,
         )
-    save_performance_records(
-        params["write_model_dir"], agt * 10 + agt, performance_records
-    )
+        save_performance_records(params["write_model_dir"], agt, performance_records)
 
 
-run_episodes(num_episodes, status)
+if params["train"]:
+    train(num_episodes, status)
+else:
+    evaluate(simulation_epoch_size)
