@@ -40,7 +40,7 @@ class AgentRL(Agent):
         self.current_request_slot_id = 0
         self.current_inform_slot_id = 0
 
-        # self.request_set = dialog_config.movie_request_slots #['moviename', 'starttime', 'city', 'date', 'theater', 'numberofpeople']
+        self.request_set = ['moviename', 'starttime', 'city', 'date', 'theater', 'numberofpeople']
 
     def initialize_config(self, req_set, inf_set):
         """ Initialize request_set and inform_set """
