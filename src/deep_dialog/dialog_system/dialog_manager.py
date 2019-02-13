@@ -8,6 +8,7 @@ import json
 from . import StateTracker
 from deep_dialog import dialog_config
 from deep_dialog.agents import AgentDQN, AgentDagger
+from deep_dialog.usersims.usersim_real import RealUser
 
 
 class DialogManager:
@@ -109,7 +110,11 @@ class DialogManager:
         """ Print Function """
 
         if agent_action:
-            if dialog_config.run_mode == 0:
+            if isinstance(self.user, RealUser) and self.agent.__class__.__name__ != "AgentCmd":
+                print (
+                        "Turn %d sys: %s" % (agent_action["turn"], agent_action["nl"])
+                )
+            elif dialog_config.run_mode == 0:
                 if self.agent.__class__.__name__ != "AgentCmd":
                     print (
                         "Turn %d sys: %s" % (agent_action["turn"], agent_action["nl"])

@@ -41,7 +41,7 @@ from deep_dialog.agents import (
     AgentDQN,
     AgentDagger,
 )
-from deep_dialog.usersims import RuleSimulator
+from deep_dialog.usersims import RuleSimulator, RealUser
 
 from deep_dialog import dialog_config
 from deep_dialog.dialog_config import *
@@ -417,9 +417,8 @@ eval_user_sim_params["learning_phase"] = "test"
 
 
 if usr == 0:  # real user
-    raise ValueError("No real user implemented!")
-    # training_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, training_user_sim_params)
-    # eval_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, eval_user_sim_params)
+    training_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, training_user_sim_params)
+    eval_user_sim = RealUser(movie_dictionary, act_set, slot_set, goal_set, eval_user_sim_params)
 elif usr == 1:  # movie simulator
     training_user_sim = RuleSimulator(
         movie_dictionary, act_set, slot_set, goal_set, training_user_sim_params
