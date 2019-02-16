@@ -106,7 +106,7 @@ feasible_actions = [
     ############################################################################
     #   greeting actions
     ############################################################################
-    # {'diaact':"greeting", 'inform_slots':{}, 'request_slots':{}},
+    {'diaact':"greeting", 'inform_slots':{}, 'request_slots':{}},
     ############################################################################
     #   confirm_question actions
     ############################################################################
@@ -124,6 +124,12 @@ feasible_actions = [
     ############################################################################
     {"diaact": "deny", "inform_slots": {}, "request_slots": {}},
 ]
+
+# Create an action map
+feasible_actions_map = {v["diaact"]: v for v in feasible_actions}
+feasible_actions_map["inform"] = {}
+feasible_actions_map["request"] = {}
+
 ############################################################################
 #   Adding the inform actions
 ############################################################################
@@ -131,6 +137,7 @@ for slot in sys_inform_slots:
     feasible_actions.append(
         {"diaact": "inform", "inform_slots": {slot: "PLACEHOLDER"}, "request_slots": {}}
     )
+    feasible_actions_map["inform"][slot] = feasible_actions[-1]
 
 ############################################################################
 #   Adding the request actions
@@ -139,3 +146,4 @@ for slot in sys_request_slots:
     feasible_actions.append(
         {"diaact": "request", "inform_slots": {}, "request_slots": {slot: "UNK"}}
     )
+    feasible_actions_map["request"][slot] = feasible_actions[-1]

@@ -6,7 +6,7 @@ Created on May 17, 2016
 
 
 from agent import Agent
-
+from deep_dialog import dialog_config
 
 class AgentCmd(Agent):
     def __init__(self, movie_dict=None, act_set=None, slot_set=None, params=None):
@@ -23,6 +23,23 @@ class AgentCmd(Agent):
         self.agent_input_mode = params["cmd_input_mode"]
 
     def state_to_action(self, state):
+        user_action = state["user_action"]
+        print "Turn", user_action["turn"] + 1, "sys:",
+        print "Options: " + ", ".join(dialog_config.feasible_actions_map.keys())
+        while True:
+            try:
+                raw_command = raw_input("Option: ").lower()
+                command = dialog_config.feasible_actions_map[raw_command]
+                if (raw_command in ["inform", "request"]):
+                    print "Sub-options: " + ", ".join(command.keys())
+                    raw_command = raw_input("Sub-option: ").lower()
+                    command = command[raw_command]
+            except:
+                continue
+            return {"act_slot_response": command,
+                    "act_slot_value_response": None}
+
+    def nl_state_to_action(self, state):
         """ Generate an action by getting input interactively from the command line """
 
         user_action = state["user_action"]

@@ -76,8 +76,8 @@ class RealUser(RuleSimulator):
             self.dialog_status = dialog_config.FAILED_DIALOG
             self.episode_over = True
 
-        user_input = raw_input("Episode result (0-continue, 1-success, 2-fail): ")
         while self.dialog_status == dialog_config.NO_OUTCOME_YET:
+            user_input = raw_input("Episode result (0-continue, 1-success, 2-fail): ")
             try:
                 user_input = int(user_input)
                 assert(user_input in [0,1,2])
