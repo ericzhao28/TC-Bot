@@ -8,6 +8,7 @@ Created on May 17, 2016
 from agent import Agent
 from deep_dialog import dialog_config
 
+
 class AgentCmd(Agent):
     def __init__(self, movie_dict=None, act_set=None, slot_set=None, params=None):
         """ Constructor for the Agent class """
@@ -22,9 +23,12 @@ class AgentCmd(Agent):
         self.agent_act_level = params["agent_act_level"]
         self.agent_input_mode = params["cmd_input_mode"]
 
+    def run_policy(self, state):
+        return dialog_config.feasible_actions.index(self.state_to_action(state)["act_slot_response"])
+
     def state_to_action(self, state):
         user_action = state["user_action"]
-        print "Turn", user_action["turn"] + 1, "sys:",
+        print(user_action)
         print "Options: " + ", ".join(dialog_config.feasible_actions_map.keys())
         while True:
             try:

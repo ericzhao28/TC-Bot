@@ -60,7 +60,6 @@ class RealUser(RuleSimulator):
         assert user_nlu_res != None
 
         sample_action.update(user_nlu_res)
-        print(sample_action.keys())
         return sample_action
 
     def next(self, system_action):
@@ -71,6 +70,7 @@ class RealUser(RuleSimulator):
         self.dialog_status = dialog_config.NO_OUTCOME_YET
 
         sys_act = system_action["diaact"]
+        print(system_action)
 
         if self.max_turn > 0 and self.state["turn"] > self.max_turn:
             self.dialog_status = dialog_config.FAILED_DIALOG
@@ -91,7 +91,11 @@ class RealUser(RuleSimulator):
                 self.dialog_status = dialog_config.FAILED_DIALOG
             break
 
-        response_action = self._sample_action()
+        if self.dialog_status == dialog_config.NO_OUTCOME_YET:
+            response_action = self._sample_action()
+            print(response_action)
+        else:
+            response_action = {}
         return response_action, self.episode_over, self.dialog_status
 
 

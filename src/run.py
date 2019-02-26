@@ -40,6 +40,7 @@ from deep_dialog.agents import (
     RequestBasicsAgent,
     AgentDQN,
     AgentDagger,
+    AgentFocusedDQN
 )
 from deep_dialog.usersims import RuleSimulator, RealUser
 
@@ -386,14 +387,30 @@ elif agt == 9:  # DQN agent for movie domain
     if params["trained_model_path"] is not None:
         agent.load_trained_DQN(params["trained_model_path"])
 elif agt == 10:
-    assert params["expert_model_path"] is not None
-    expert = AgentDQN(kb, act_set, slot_set, agent_params)
-    expert.initialize_config(sys_request_slots, sys_inform_slots)
+    if params["expert_model_path"] is None:
+        expert = AgentCmd(kb, act_set, slot_set, agent_params)
+    else:
+        expert = AgentDQN(kb, act_set, slot_set, agent_params)
+        expert.initialize_config(sys_request_slots, sys_inform_slots)
+        expert.load_trained_DQN(params["expert_model_path"])
     expert.evaluation_mode = True
     expert.warm_start = 0
-    expert.load_trained_DQN(params["expert_model_path"])
     agent = AgentDagger(expert, kb, act_set, slot_set, agent_params)
     agent.initialize_config(sys_request_slots, sys_inform_slots)
+    if params["trained_model_path"] is not None:
+        agent.load_trained_dagger(params["trained_model_path"])
+elif agt == 11:
+    if params["expert_model_path"] is None:
+        expert = AgentCmd(kb, act_set, slot_set, agent_params)
+    else:
+        expert = AgentDQN(kb, act_set, slot_set, agent_params)
+        expert.initialize_config(sys_request_slots, sys_inform_slots)
+        expert.load_trained_DQN(params["expert_model_path"])
+    expert.warm_start = 0
+    agent = AgentFocusedDQN(expert, kb, act_set, slot_set, agent_params)
+    agent.initialize_config(sys_request_slots, sys_inform_slots)
+    if params["trained_model_path"] is not None:
+        agent.load_trained_DQN(params["trained_model_path"])
 
 ################################################################################
 #    Add your agent here
@@ -505,6 +522,10 @@ def save_model(path, agt, success_rate, agent, best_epoch, cur_epoch):
     checkpoint = {}
     if agt == 9:
         checkpoint["model"] = copy.deepcopy(agent.dqn.model)
+    elif agt == 10:
+        checkpoint["model"] = copy.deepcopy(agent.dagger.model)
+    else:
+        raise ValueError()
     checkpoint["params"] = params
     try:
         pickle.dump(checkpoint, open(filepath, "wb"))
@@ -531,8 +552,10 @@ def save_performance_records(path, agt, records):
 """ Run N simulation Dialogues """
 
 
-def evaluate(simulation_epoch_size):
+def evaluate(simulation_epoch_size, benchmark=False):
     dialog_manager.user = eval_user_sim
+    if benchmark:
+        dialog_manager.log = True
     agent.evaluation_mode = True
 
     successes = 0
@@ -558,6 +581,7 @@ def evaluate(simulation_epoch_size):
         "Evaluation success rate %s, ave reward %s, ave turns %s"
         % (res["success_rate"], res["ave_reward"], res["ave_turns"])
     )
+    dialog_manager.log = False
     return res
 
 
@@ -591,6 +615,8 @@ def warm_start_train():
         warm_start_run_epochs += 1
 
     agent.warm_start = 2
+    agent.dagger_X = []
+    agent.dagger_Y = []
     res["success_rate"] = float(successes) / warm_start_run_epochs
     res["ave_reward"] = float(cumulative_reward) / warm_start_run_epochs
     res["ave_turns"] = float(cumulative_turns) / warm_start_run_epochs
@@ -601,8 +627,6 @@ def warm_start_train():
 
 
 def train(count, status):
-    assert agt == 9 or agt == 10
-
     successes = 0
     cumulative_reward = 0
     cumulative_turns = 0
@@ -633,7 +657,7 @@ def train(count, status):
             agent.clone_dqn = copy.deepcopy(agent.dqn)
         agent.train(batch_size, 1)
 
-        if episode % 10 == 0:
+        if episode % 200 == 0:
             simulation_res = evaluate(simulation_epoch_size)
             dialog_manager.user = training_user_sim
             agent.evaluation_mode = False
@@ -642,10 +666,10 @@ def train(count, status):
             ]
             performance_records["ave_turns"][episode] = simulation_res["ave_turns"]
             performance_records["ave_reward"][episode] = simulation_res["ave_reward"]
-            # if simulation_res['success_rate'] >= best_res['success_rate']:
-            #     if simulation_res['success_rate'] >= success_rate_threshold: # threshold = 0.30
-            #         agent.experience_replay_pool = []
-            #         simulation_epoch(simulation_epoch_size)
+            if simulation_res['success_rate'] >= best_res['success_rate']:
+                if simulation_res['success_rate'] >= success_rate_threshold: # threshold = 0.30
+                    agent.experience_replay_pool = []
+                    # simulation_epoch(simulation_epoch_size)
             if simulation_res["success_rate"] > best_res["success_rate"]:
                 best_model["model"] = copy.deepcopy(agent)
                 best_res["success_rate"] = simulation_res["success_rate"]
@@ -662,7 +686,7 @@ def train(count, status):
                 )
             )
 
-            if episode % save_check_point == 0 and params["trained_model_path"] == None:
+            if episode % save_check_point == 0:
                 save_model(
                     params["write_model_dir"],
                     agt,
@@ -699,19 +723,18 @@ def train(count, status):
     status["successes"] += successes
     status["count"] += count
 
-    if agt == 9 and params["trained_model_path"] == None:
-        save_model(
-            params["write_model_dir"],
-            agt,
-            float(successes) / count,
-            best_model["model"],
-            best_res["epoch"],
-            count,
-        )
-        save_performance_records(params["write_model_dir"], agt, performance_records)
+    save_model(
+        params["write_model_dir"],
+        agt,
+        float(successes) / count,
+        best_model["model"],
+        best_res["epoch"],
+        count,
+    )
+    save_performance_records(params["write_model_dir"], agt, performance_records)
 
 
 if params["train"]:
     train(num_episodes, status)
 else:
-    evaluate(simulation_epoch_size)
+    evaluate(simulation_epoch_size, True)

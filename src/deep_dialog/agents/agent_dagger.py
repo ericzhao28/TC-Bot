@@ -8,11 +8,11 @@ An Dagger Agent
 """
 
 
-import random, copy
-import numpy as np
+import random, copy, pickle
 
 
 from agent_rl import AgentRL
+from agent_cmd import AgentCmd
 from deep_dialog.neural import Dagger
 
 
@@ -37,6 +37,7 @@ class AgentDagger(AgentRL):
         self.warm_start = params.get("warm_start", 0)
 
         self.expert = expert
+        self.cache = {}
 
         self.cur_bellman_err = 0
 
@@ -46,6 +47,7 @@ class AgentDagger(AgentRL):
             return random.randint(0, self.num_actions - 1)
         else:
             if self.warm_start == 1:
+                assert(not isinstance(self.expert, AgentCmd))
                 return self.expert.run_policy(representation)
             return self.dagger.predict(representation)
 
@@ -54,10 +56,25 @@ class AgentDagger(AgentRL):
         if self.evaluation_mode:  # Training Mode
             return
         state_t_rep = self.prepare_state_representation(s_t)
-        a_t = self.expert.run_policy(state_t_rep)
+        if isinstance(self.expert, AgentCmd):
+            if str(state_t_rep) not in self.cache:
+                a_t = self.expert.run_policy(s_t)
+                self.cache[str(state_t_rep)] = a_t
+            else:
+                a_t = self.cache[str(state_t_rep)]
+        else:
+            a_t = self.expert.run_policy(state_t_rep)
         self.dagger_X.append(state_t_rep[0])
         self.dagger_Y.append(a_t)
 
     def train(self, batch_size=1, _=None):
         """ Train DQN with experience replay """
         self.dagger.train(self.dagger_X, self.dagger_Y, batch_size)
+
+    def load_trained_dagger(self, path):
+        """ Load the trained DQN from a file """
+
+        trained_file = pickle.load(open(path, "rb"))
+        model = trained_file["model"]
+
+        self.dagger.model = copy.deepcopy(model)

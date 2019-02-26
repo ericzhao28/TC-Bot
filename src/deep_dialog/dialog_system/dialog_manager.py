@@ -9,6 +9,7 @@ from . import StateTracker
 from deep_dialog import dialog_config
 from deep_dialog.agents import AgentDQN, AgentDagger
 from deep_dialog.usersims.usersim_real import RealUser
+import logging
 
 
 class DialogManager:
@@ -24,6 +25,9 @@ class DialogManager:
         self.reward = 0
         self.episode_over = False
 
+        self.log = False
+        logging.basicConfig(filename='dialog.log', level=logging.DEBUG)
+
     def initialize_episode(self):
         """ Refresh state for new dialog """
 
@@ -36,6 +40,9 @@ class DialogManager:
         if dialog_config.run_mode < 3:
             print ("New episode, user goal:")
             print json.dumps(self.user.goal, indent=2)
+        if self.log:
+            logging.info("New episode, user goal:")
+            logging.info(json.dumps(self.user.goal, indent=2))
         self.print_function(user_action=self.user_action)
 
         self.agent.initialize_episode()
@@ -110,6 +117,8 @@ class DialogManager:
         """ Print Function """
 
         if agent_action:
+            if self.log:
+                logging.info("Turn %d sys: %s" % (agent_action["turn"], agent_action["nl"]))
             if isinstance(self.user, RealUser) and self.agent.__class__.__name__ != "AgentCmd":
                 print (
                         "Turn %d sys: %s" % (agent_action["turn"], agent_action["nl"])
@@ -152,6 +161,8 @@ class DialogManager:
                     )
                 )
         elif user_action:
+            if self.log:
+                logging.info("Turn %d usr: %s" % (user_action["turn"], user_action["nl"]))
             if dialog_config.run_mode == 0:
                 print ("Turn %d usr: %s" % (user_action["turn"], user_action["nl"]))
             elif dialog_config.run_mode == 1:
