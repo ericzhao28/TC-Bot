@@ -686,7 +686,7 @@ def train(count, status):
                 )
             )
 
-            if episode % save_check_point == 0:
+            if episode - 1 % save_check_point == 0:
                 save_model(
                     params["write_model_dir"],
                     agt,

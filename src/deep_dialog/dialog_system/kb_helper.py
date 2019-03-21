@@ -72,6 +72,7 @@ class KBHelper:
                     slot
                 ] = dialog_config.NO_VALUE_MATCH  # "NO VALUE MATCHES SNAFU!!!"
 
+        print("Current slots: ", current_slots)
         return filled_in_slots
 
     def available_slot_values(self, slot, kb_results):
